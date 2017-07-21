@@ -52,10 +52,10 @@ void GLCM::getHorisonGLCM(VecGLCM &src, VecGLCM &dst, int imgWidth, int imgHeigh
 
 	for (int i = 0; i < height; ++i)
 	{
-		for (int j = 0; j < width - 1; ++j)
+		for (int j = 0; j < width - MOVE_DIS; ++j)
 		{
 			int rows = src[i][j];
-			int cols = src[i][j + 1];
+			int cols = src[i][j + MOVE_DIS];
 			dst[rows][cols]++;
 		}
 	}
@@ -76,12 +76,12 @@ void GLCM::getVertialGLCM(VecGLCM &src, VecGLCM &dst, int imgWidth, int imgHeigh
 {
 	int height = imgHeight;
 	int width = imgWidth;
-	for (int i = 0; i < height - 1; ++i)
+	for (int i = 0; i < height - MOVE_DIS; ++i)
 	{
 		for (int j = 0; j < width; ++j)
 		{
 			int rows = src[i][j];
-			int cols = src[i + 1][j];
+			int cols = src[i + MOVE_DIS][j];
 			dst[rows][cols]++;
 		}
 	}
@@ -100,12 +100,12 @@ void GLCM::getGLCM45(VecGLCM &src, VecGLCM &dst, int imgWidth, int imgHeight)
 {
 	int height = imgHeight;
 	int width = imgWidth;
-	for (int i = 0; i < height - 1; ++i)
+	for (int i = 0; i < height - MOVE_DIS; ++i)
 	{
-		for (int j = 0; j < width - 1; ++j)
+		for (int j = 0; j < width - MOVE_DIS; ++j)
 		{
 			int rows = src[i][j];
-			int cols = src[i + 1][j + 1];
+			int cols = src[i + MOVE_DIS][j + MOVE_DIS];
 			dst[rows][cols]++;
 		}
 	}
@@ -125,12 +125,12 @@ void GLCM::getGLCM135(VecGLCM& src, VecGLCM& dst, int imgWidth, int imgHeight)
 {
 	int height = imgHeight;
 	int width = imgWidth;
-	for (int i = 0; i < height - 1; ++i)
+	for (int i = 0; i < height - MOVE_DIS; ++i)
 	{
-		for (int j = 1; j < width; ++j)
+		for (int j = MOVE_DIS; j < width; ++j)
 		{
 			int rows = src[i][j];
-			int cols = src[i + 1][j - 1];
+			int cols = src[i + MOVE_DIS][j - MOVE_DIS];
 			dst[rows][cols]++;
 		}
 	}

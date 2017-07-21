@@ -27,7 +27,7 @@ int main()
 	while (!ifs.eof())
 	{
 		getline(ifs, temp);
-		temp = "test12.jpg";
+		//temp = "ÏæA0PQ76.jpg";
 		if (temp.size() <= 4)
 			continue;
 		Sum++;

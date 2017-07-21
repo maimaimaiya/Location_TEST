@@ -75,5 +75,5 @@ private:
 
 private:
 	int m_grayLevel;        // 将灰度共生矩阵划分为 grayLevel 个等级  
-
+	static const int MOVE_DIS = 5;
 };

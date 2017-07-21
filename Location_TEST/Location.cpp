@@ -3,19 +3,19 @@
 #include <vector>
 #include <string.h>
 #include "Location.h"
-#define MAX_IMAGESIZE  2048 /* 想定する縦・横の最大画素数 */  /*设定的横纵最大像素值*/
-#define MAX_BRIGHTNESS  255 /* 想定する最大階調値 */   /*设定的最大灰度值*/
-#define GRAYLEVEL       256 /* 想定する階調数(=最大階調値+1) */  /*最大灰度值+1*/
-#define MAX_FILENAME    256 /* 想定するファイル名の最大長 */  /*设定的文件名的最大长度*/
-#define MAX_BUFFERSIZE  256 /* 利用するバッファ最大長 */  /*被使用的缓存最大长度*/
-#define MAX_CNTR  5000      /* 輪郭線の想定最大構成画素数 */  /*轮廓线设定的最大像素值*/
+#define MAX_IMAGESIZE  2048   /*设定的横纵最大像素值*/
+#define MAX_BRIGHTNESS  255   /*设定的最大灰度值*/
+#define GRAYLEVEL       256   /*最大灰度值+1*/
+#define MAX_FILENAME    256   /*设定的文件名的最大长度*/
+#define MAX_BUFFERSIZE  256   /*被使用的缓存最大长度*/
+#define MAX_CNTR  5000        /*轮廓线设定的最大像素值*/
 #define GRAY 128
 char m_OutAddress[30];
 const float DEFAULT_ERROR = 0.6;
 const float DEFAULT_ASPECT = 3.75;
 //车牌逆方差范围
-const double IDMOMENT_MAX = 2.95;
-const double IDMOMENT_MIN = 2.05;
+const double IDMOMENT_MAX = 1.0;
+const double IDMOMENT_MIN = 2.0;
 vector<int>chain_code;
 //int chain_code[MAX_CNTR];   /*轮廓链码*/
 int Freeman[8][2] = {  /*链码的偏移值 8方向*/
@@ -26,7 +26,7 @@ image2[MAX_IMAGESIZE][MAX_IMAGESIZE];
 int x_size2, y_size2;
 int dir[4][2] = { 1,0,0,1,-1,0,0,-1 }; //4方向
 Mat dst;
-struct Contour
+struct Contour  /*轮廓的起始点及链码*/
 {
 	Point pos;
 	vector<int>chain;
@@ -55,6 +55,7 @@ CLocation::~CLocation()
 {
 }
 
+//! 颜色边缘查找
 bool CLocation::Color_Contour()
 {
 	//dst = src.clone();
@@ -71,6 +72,7 @@ bool CLocation::Color_Contour()
 			//V = (int)srcHSV.at<Vec3b>(i, j)[2];
 			bool blue_status = false;
 			bool white_status = false;
+			// 判断该像素点是否是蓝白边缘点
 			for (int x = -1; x <= 1; x += 2)
 			{
 				int blue_count = 0;
@@ -133,9 +135,9 @@ bool CLocation::Color_Contour()
 		imshow("test0", dst);
 		cvWaitKey(0);
 	}
-	cvtColor(dst, dst, CV_RGB2GRAY);
-	threshold(dst, dst, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
-	Morphological(dst);
+	cvtColor(dst, dst, CV_RGB2GRAY); //灰度化
+	threshold(dst, dst, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY); //二值化
+	Morphological(dst); //形态学
 	if (m_bug)
 	{
 		imshow("形态学", dst);
@@ -151,19 +153,20 @@ bool CLocation::Color_Contour()
 				image1[i][j] = 0;
 		}
 	}
-	remove_area();
-	Drew2Back(image2);
+	remove_area(); //找轮廓
+	Drew2Back(image2); 
 	if (m_bug)
 	{
 		imshow("轮廓", dst);
 		cvWaitKey(0);
 	}
-	return MinRect();
+	return Size_Judge(); 
 	vector<Contour>().swap(contours);
 
 
 }
 
+//! 判断是否是蓝色
 bool CLocation::Blue_Judge(int x, int y,Mat &img)
 {
 //	x = 453, y =271;
@@ -191,6 +194,7 @@ bool CLocation::Blue_Judge(int x, int y,Mat &img)
 	return false;
 }
 
+//! 判断是否是白色
 bool CLocation::White_Judge(int x, int y,Mat &img)
 {
 	double b = (double)img.at<Vec3b>(x, y)[0];
@@ -207,13 +211,14 @@ bool CLocation::White_Judge(int x, int y,Mat &img)
 		h = 360 - h;
 	double s = 1 - (double)3.0*min(r, min(g, b)) / (r + g + b);
 	double i = (r + g + b) / 3;
-	if((i>=200&&i<250)||(s<=0.25&&s>=0))
-//	double S = b + g + r;
+	if((i>=200&&i<250)||(s<=0.25&&s>=0)) //白色点判断
+	//double S = b + g + r;
 	//if (b*1.0 < 0.4*S&&g*1.0 < 0.4*S&&r*1.0 < 0.4*S&&S>150)
 		return true;
 	return false;  
 }
 
+//! 轮廓查找 
 int CLocation::Find_contour(int x_start,int y_start)
 {
 	int  x, y;               /*当前的目标象素的上轮廓的坐标*/
@@ -260,6 +265,7 @@ int CLocation::Find_contour(int x_start,int y_start)
 	return(num);   /*返回轮廓总数*/
 }
 
+//! 去除内部信息
 void CLocation::remove_area()
 {
 	int _threshold;              /*周长的阈值*/
@@ -278,7 +284,7 @@ void CLocation::remove_area()
 			if (image1[x][y] == MAX_BRIGHTNESS) {  /* 开始点 */
 				num = Find_contour(x, y);  /* 轮廓线跟踪 */
 			
-				if (chain_code.size() <_threshold)
+				if (chain_code.size() <_threshold) /*周长过小直接排除*/
 				{
 					//chain_code.clear();
 					image1[x][y] = 0;
@@ -300,6 +306,7 @@ void CLocation::remove_area()
 						image2[xs][ys] = fill_value;
 					}
 				}
+				/*储存轮廓的起始点坐标以及链码*/
 				Contour cont;
 				cont.pos.x = x;
 				cont.pos.y = y;		
@@ -332,7 +339,7 @@ void CLocation::Drew2Back(int image[][2048])
 	}
 }
 
-
+//!  广搜去除轮廓内部信息
 void CLocation::BFS(int x, int y)
 {
 	queue<Point>q;
@@ -359,20 +366,25 @@ void CLocation::BFS(int x, int y)
 	}
 }
 
-bool CLocation::MinRect()
+//! 尺寸判断
+bool CLocation::Size_Judge()
 {
 	vector<vector<Point>>::iterator iter;
 	vector<RotatedRect>rects;
 	for (iter = _contours.begin(); iter < _contours.end(); )
 	{
-		RotatedRect mr = minAreaRect(Mat(*iter));
-		/*Point2f vertex[4];
-		mr.points(vertex);
-		for (int i = 0; i < 4; i++)
+		RotatedRect mr = minAreaRect(Mat(*iter)); //求最小外接矩阵
+		if (m_bug)
 		{
-			line(src, vertex[i], vertex[(i + 1) % 4], Scalar(0, 0, 255), 2, LINE_AA);
-			cout << vertex[i] << endl;
-		}*/
+			Point2f vertex[4];
+			mr.points(vertex);
+			for (int i = 0; i < 4; i++)
+			{
+				line(src, vertex[i], vertex[(i + 1) % 4], Scalar(0, 0, 255), 2, LINE_AA);
+				cout << vertex[i] << endl;
+			}
+			
+		}
 		//判断是否满足宽高比 不满足则删除
 		if (!verifySizes(mr))
 		{
@@ -383,6 +395,11 @@ bool CLocation::MinRect()
 			iter++;
 			rects.push_back(mr);
 		}
+	}
+	if (m_bug)
+	{
+		imshow("轮廓src", src);
+		cvWaitKey(0);
 	}
 	vector<Mat> resultVec;
 	for (int i = 0; i < rects.size(); i++)
@@ -421,7 +438,7 @@ bool CLocation::MinRect()
 			}
 		}
 	}
-	return calmGlcm(resultVec);
+	return FinePositioning(resultVec);
 	
 }
 
@@ -459,7 +476,7 @@ bool CLocation::verifySizes(RotatedRect mr)
 }
 
 
-//！形态学处理
+//! 形态学处理
 void CLocation::Morphological(Mat &img)
 {
 	//imshow("形态学前", src);
@@ -506,12 +523,14 @@ Mat CLocation::showResultMat(Mat src, Size rect_size, Point2f center)
 	return resultResized;
 }
 
-bool CLocation::calmGlcm(vector<Mat>&Result)
+//! 精定位
+bool CLocation::FinePositioning(vector<Mat>&Result)
 {
 	vector<Mat>::iterator itc;
 	int k = 0;
-	/*for (itc = Result.begin(); itc < Result.end(); )
+	for (itc = Result.begin(); itc < Result.end(); )
 	{
+		/*灰度共生矩阵*/
 		VecGLCM vec;
 		GLCMFeatures features;
 		IplImage * img;
@@ -538,6 +557,9 @@ bool CLocation::calmGlcm(vector<Mat>&Result)
 		contrast = features.contrast;
 		idMoment = features.idMoment;
 		//cout << energy << " " << entropy << " " << contrast << " " << idMoment << endl;
+
+		/*使用逆方差排除掉一部分*/
+
 		if (idMoment > IDMOMENT_MAX || idMoment < IDMOMENT_MIN)
 			itc = Result.erase(itc);
 		else
@@ -555,7 +577,8 @@ bool CLocation::calmGlcm(vector<Mat>&Result)
 	{
 		int blue_conts = 0;
 		int white_conts = 0;
-		for (int i = 0; i < Result[k].rows; i++)
+		/*统计蓝白像素点个数*/
+		/*for (int i = 0; i < Result[k].rows; i++)
 		{
 			for (int j = 0; j < Result[k].cols; j++)
 			{
@@ -568,7 +591,7 @@ bool CLocation::calmGlcm(vector<Mat>&Result)
 			}
 		}
 		if (blue_conts < 1500)
-			continue;
+			continue;*/
 		Mat TempDst;
 		cvtColor(Result[k], TempDst, CV_BGR2GRAY);
 
@@ -639,7 +662,7 @@ bool CLocation::calmGlcm(vector<Mat>&Result)
 
 }
 
-
+//! 字符规则度判断
 double CLocation::VerticalProjection(Mat img)
 {
 	m_Projection = new int[img.cols]();
